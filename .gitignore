@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+bun.lock
+bun.lockb
+package-lock.json
+
+# Local Runtime Data
+data/
+**/data/
+**/tmp_*
+**/*.tsbuildinfo
+*.tsbuildinfo
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+*.log
+.env
+.env.local
