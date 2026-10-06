@@ -1,0 +1,128 @@
+name: Build Android Dev Client (arm64)
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'apps/mobile/**'
+      - 'packages/shared/**'
+      - 'package.json'
+      - 'turbo.json'
+      - '.github/workflows/build-android.yml'
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build Type: debug (Expo Dev Client) or release (Standalone APK)'
+        required: true
+        default: 'debug'
+        type: choice
+        options:
+          - debug
+          - release
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify Tests & Types
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🍞 Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: 📦 Install dependencies
+        run: bun install
+
+      - name: 🧪 Run Unit Tests
+        run: bun test
+
+      - name: 🔍 Type-check
+        run: bun run typecheck
+
+  build-android:
+    name: Build Android APK (arm64-v8a)
+    needs: [verify]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: ☕ Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: 📱 Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 🍞 Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: 📦 Install root dependencies
+        run: bun install
+
+      - name: 🐘 Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
+      - name: ⚙️ Expo Prebuild (Generate Android Native Project)
+        run: |
+          cd apps/mobile
+          npx expo prebuild --platform android --no-install
+
+      - name: 🔨 Configure Gradle Performance & arm64 Architecture
+        run: |
+          mkdir -p ~/.gradle
+          echo "org.gradle.parallel=true" >> ~/.gradle/gradle.properties
+          echo "org.gradle.caching=true" >> ~/.gradle/gradle.properties
+          echo "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m" >> ~/.gradle/gradle.properties
+          echo "reactNativeArchitectures=arm64-v8a" >> ~/.gradle/gradle.properties
+
+      - name: 🚀 Build Android APK
+        run: |
+          cd apps/mobile/android
+          BUILD_TYPE="${{ github.event.inputs.build_type || 'debug' }}"
+          echo "Starting Gradle build for $BUILD_TYPE (targeting arm64-v8a)..."
+          if [ "$BUILD_TYPE" = "release" ]; then
+            ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon
+          else
+            ./gradlew assembleDebug -PreactNativeArchitectures=arm64-v8a --no-daemon
+          fi
+
+      - name: 📦 Locate Output APK
+        id: find-apk
+        run: |
+          APK_PATH=$(find apps/mobile/android/app/build/outputs/apk -name "*.apk" | head -n 1)
+          if [ -z "$APK_PATH" ]; then
+            echo "Error: No APK file found in build outputs!"
+            exit 1
+          fi
+          echo "Found APK at: $APK_PATH"
+          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
+          APK_NAME=$(basename "$APK_PATH")
+          echo "apk_name=$APK_NAME" >> $GITHUB_OUTPUT
+
+      - name: 📤 Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: imgdrop-${{ github.event.inputs.build_type || 'debug' }}-arm64-apk
+          path: ${{ steps.find-apk.outputs.apk_path }}
+          retention-days: 14

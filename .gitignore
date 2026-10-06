@@ -25,4 +25,11 @@ Thumbs.db
 .env
 .env.local
 
+# Expo & Mobile Native
+.expo/
+apps/mobile/android/
+apps/mobile/ios/
+*.apk
+*.aab
+
 spec/
