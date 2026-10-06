@@ -2,6 +2,8 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import qrcode from 'qrcode-terminal';
+import { generatePairingUri } from '@imgdrop/shared';
+import type { PairingCredentials } from '@imgdrop/shared';
 import type { AuthCredentials } from './types.ts';
 
 export function loadOrInitCredentials(configFile: string): AuthCredentials {
@@ -36,12 +38,18 @@ export function loadOrInitCredentials(configFile: string): AuthCredentials {
   return credentials;
 }
 
-export function buildPairingUri(serverId: string, token: string, port: number): string {
-  return `imgdrop://pair?id=${encodeURIComponent(serverId)}&token=${encodeURIComponent(token)}&port=${port}`;
+export function buildPairingUri(serverId: string, token: string, port: number, host?: string): string {
+  return generatePairingUri({ serverId, token, port, host });
 }
 
-export function displayPairingInfo(credentials: AuthCredentials, port: number): string {
-  const uri = buildPairingUri(credentials.server_id, credentials.token, port);
+export function displayPairingInfo(credentials: AuthCredentials, port: number, host?: string): string {
+  const creds: PairingCredentials = {
+    serverId: credentials.server_id,
+    token: credentials.token,
+    port,
+    host,
+  };
+  const uri = generatePairingUri(creds);
 
   console.log('\n' + '='.repeat(50));
   console.log('              ImgDrop Server Ready');

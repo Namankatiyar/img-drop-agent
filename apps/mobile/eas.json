@@ -1,0 +1,49 @@
+{
+  "cli": {
+    "version": ">= 12.0.0"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
+        "env": {
+          "ORG_GRADLE_PROJECT_reactNativeArchitectures": "arm64-v8a",
+          "ORG_GRADLE_PROJECT_org.gradle.parallel": "true",
+          "ORG_GRADLE_PROJECT_org.gradle.caching": "true",
+          "ORG_GRADLE_PROJECT_org.gradle.jvmargs": "-Xmx4096m",
+          "GRADLE_OPTS": "-Dorg.gradle.parallel=true -Dorg.gradle.caching=true -Dorg.gradle.jvmargs=-Xmx4096m"
+        }
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
+        "env": {
+          "ORG_GRADLE_PROJECT_reactNativeArchitectures": "arm64-v8a",
+          "ORG_GRADLE_PROJECT_org.gradle.parallel": "true",
+          "ORG_GRADLE_PROJECT_org.gradle.caching": "true",
+          "ORG_GRADLE_PROJECT_org.gradle.jvmargs": "-Xmx4096m",
+          "GRADLE_OPTS": "-Dorg.gradle.parallel=true -Dorg.gradle.caching=true -Dorg.gradle.jvmargs=-Xmx4096m"
+        }
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "app-bundle",
+        "env": {
+          "ORG_GRADLE_PROJECT_reactNativeArchitectures": "arm64-v8a",
+          "ORG_GRADLE_PROJECT_org.gradle.parallel": "true",
+          "ORG_GRADLE_PROJECT_org.gradle.caching": "true",
+          "ORG_GRADLE_PROJECT_org.gradle.jvmargs": "-Xmx4096m",
+          "GRADLE_OPTS": "-Dorg.gradle.parallel=true -Dorg.gradle.caching=true -Dorg.gradle.jvmargs=-Xmx4096m"
+        }
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

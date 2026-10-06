@@ -1,7 +1,7 @@
 import { Database } from 'bun:sqlite';
 import fs from 'node:fs';
 import path from 'node:path';
-import type { GroupRecord, ImageRecord, GroupWithImages, GroupStatus } from './types.ts';
+import type { GroupRecord, ImageRecord, GroupWithImages, GroupStatus } from '@imgdrop/shared';
 
 export function initDatabase(dbPath: string): Database {
   const dir = path.dirname(dbPath);
@@ -153,7 +153,7 @@ export function insertGroupWithImages(
       $status: group.status,
       $claimed_at: group.claimed_at,
       $note: group.note,
-      $client_key: group.client_key,
+      $client_key: group.client_key ?? null,
       $image_count: group.image_count,
     });
 

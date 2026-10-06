@@ -4,12 +4,19 @@ bun.lock
 bun.lockb
 package-lock.json
 
+# Turborepo
+.turbo/
+
+# Build Outputs
+dist/
+build/
+**/*.tsbuildinfo
+*.tsbuildinfo
+
 # Local Runtime Data
 data/
 **/data/
 **/tmp_*
-**/*.tsbuildinfo
-*.tsbuildinfo
 
 # OS / Editor
 .DS_Store
@@ -17,3 +24,5 @@ Thumbs.db
 *.log
 .env
 .env.local
+
+spec/

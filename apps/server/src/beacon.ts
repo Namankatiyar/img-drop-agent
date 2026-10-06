@@ -1,6 +1,8 @@
 import dgram from 'node:dgram';
 import os from 'node:os';
-import type { Config, AuthCredentials, BeaconPayload } from './types.ts';
+import { BEACON_SERVICE, BEACON_VERSION } from '@imgdrop/shared';
+import type { BeaconPayload } from '@imgdrop/shared';
+import type { Config, AuthCredentials } from './types.ts';
 
 export function getBroadcastAddresses(): string[] {
   const addresses = new Set<string>(['255.255.255.255']);
@@ -44,8 +46,8 @@ export function createBeaconService(config: Config, credentials: AuthCredentials
     if (!socket || !isRunning) return;
 
     const payload: BeaconPayload = {
-      service: 'imgdrop',
-      v: 1,
+      service: BEACON_SERVICE,
+      v: BEACON_VERSION,
       id: credentials.server_id,
       port: config.port,
       ts: Math.floor(Date.now() / 1000),

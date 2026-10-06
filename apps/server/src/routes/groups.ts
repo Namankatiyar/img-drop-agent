@@ -6,7 +6,9 @@ import type { Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import { monotonicFactory } from 'ulidx';
 import type { Database } from 'bun:sqlite';
-import type { Config, GroupRecord, ImageRecord, GroupStatus } from '../types.ts';
+import { MAX_NOTE_LENGTH } from '@imgdrop/shared';
+import type { GroupRecord, ImageRecord, GroupStatus } from '@imgdrop/shared';
+import type { Config } from '../types.ts';
 import {
   getGroupById,
   getGroupByClientKey,
@@ -208,12 +210,12 @@ export function createGroupsRouter(db: Database, cfg: Config): Router {
       let note: string | null = null;
       if (req.body.note !== undefined && req.body.note !== null) {
         const rawNote = String(req.body.note);
-        if (rawNote.length > 2000) {
+        if (rawNote.length > MAX_NOTE_LENGTH) {
           if (tmpDir) cleanupDir(tmpDir);
           res.status(400).json({
             error: {
               code: 'VALIDATION_ERROR',
-              message: 'Note must not exceed 2000 characters.',
+              message: `Note must not exceed ${MAX_NOTE_LENGTH} characters.`,
             },
           });
           return;
