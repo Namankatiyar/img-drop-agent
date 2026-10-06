@@ -1,4 +1,4 @@
-name: Build Android Dev Client (arm64)
+name: Build Android APK (arm64)
 
 on:
   push:
@@ -13,13 +13,14 @@ on:
   workflow_dispatch:
     inputs:
       build_type:
-        description: 'Build Type: debug (Expo Dev Client) or release (Standalone APK)'
+        description: 'Build Type: both, release (standalone, no Metro), debug (Dev Client with Metro)'
         required: true
-        default: 'debug'
+        default: 'both'
         type: choice
         options:
-          - debug
+          - both
           - release
+          - debug
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -62,8 +63,9 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: 📱 Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: 📱 Accept Android SDK Licenses
+        run: |
+          yes | sdkmanager --licenses || true
 
       - name: 🟢 Setup Node.js
         uses: actions/setup-node@v4
@@ -88,7 +90,7 @@ jobs:
           cd apps/mobile
           npx expo prebuild --platform android --no-install
 
-      - name: 🔨 Configure Gradle Performance & arm64 Architecture
+      - name: 🔨 Configure Gradle Performance & Release Signing
         run: |
           mkdir -p ~/.gradle
           echo "org.gradle.parallel=true" >> ~/.gradle/gradle.properties
@@ -96,33 +98,41 @@ jobs:
           echo "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m" >> ~/.gradle/gradle.properties
           echo "reactNativeArchitectures=arm64-v8a" >> ~/.gradle/gradle.properties
 
-      - name: 🚀 Build Android APK
+          cat << 'EOF' > ~/.gradle/init.gradle
+          allprojects {
+              afterEvaluate { project ->
+                  if (project.plugins.hasPlugin("com.android.application")) {
+                      project.android.buildTypes.release.signingConfig = project.android.signingConfigs.debug
+                  }
+              }
+          }
+          EOF
+
+      - name: 🚀 Build Android APK (arm64-v8a)
         run: |
           cd apps/mobile/android
-          BUILD_TYPE="${{ github.event.inputs.build_type || 'debug' }}"
-          echo "Starting Gradle build for $BUILD_TYPE (targeting arm64-v8a)..."
+          BUILD_TYPE="${{ github.event.inputs.build_type || 'both' }}"
+          echo "Building for target: $BUILD_TYPE..."
           if [ "$BUILD_TYPE" = "release" ]; then
             ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon
-          else
+          elif [ "$BUILD_TYPE" = "debug" ]; then
             ./gradlew assembleDebug -PreactNativeArchitectures=arm64-v8a --no-daemon
+          else
+            ./gradlew assembleDebug assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon
           fi
 
-      - name: 📦 Locate Output APK
-        id: find-apk
-        run: |
-          APK_PATH=$(find apps/mobile/android/app/build/outputs/apk -name "*.apk" | head -n 1)
-          if [ -z "$APK_PATH" ]; then
-            echo "Error: No APK file found in build outputs!"
-            exit 1
-          fi
-          echo "Found APK at: $APK_PATH"
-          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
-          APK_NAME=$(basename "$APK_PATH")
-          echo "apk_name=$APK_NAME" >> $GITHUB_OUTPUT
-
-      - name: 📤 Upload APK Artifact
+      - name: 📤 Upload Standalone Release APK (No Metro Needed)
+        if: ${{ github.event.inputs.build_type != 'debug' }}
         uses: actions/upload-artifact@v4
         with:
-          name: imgdrop-${{ github.event.inputs.build_type || 'debug' }}-arm64-apk
-          path: ${{ steps.find-apk.outputs.apk_path }}
+          name: imgdrop-release-standalone-arm64-apk
+          path: apps/mobile/android/app/build/outputs/apk/release/*.apk
+          retention-days: 14
+
+      - name: 📤 Upload Dev Client Debug APK (For Live Hot Reload)
+        if: ${{ github.event.inputs.build_type != 'release' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: imgdrop-debug-devclient-arm64-apk
+          path: apps/mobile/android/app/build/outputs/apk/debug/*.apk
           retention-days: 14
