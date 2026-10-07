@@ -2,7 +2,10 @@
   "compilerOptions": {
     "target": "ESNext",
     "module": "ESNext",
-    "lib": ["DOM", "ESNext"],
+    "lib": [
+      "DOM",
+      "ESNext"
+    ],
     "jsx": "react-native",
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
@@ -15,11 +18,21 @@
     "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      "~/*": ["./*"],
-      "@imgdrop/shared": ["../../packages/shared/src/index.ts"],
-      "@imgdrop/shared/*": ["../../packages/shared/src/*"],
-      "bun:test": ["../../node_modules/.bun/bun-types@1.4.2/node_modules/bun-types/test.d.ts"]
+      "@/*": [
+        "./src/*"
+      ],
+      "~/*": [
+        "./*"
+      ],
+      "@imgdrop/shared": [
+        "../../packages/shared/src/index.ts"
+      ],
+      "@imgdrop/shared/*": [
+        "../../packages/shared/src/*"
+      ],
+      "bun:test": [
+        "../../node_modules/.bun/bun-types@1.4.2/node_modules/bun-types/test.d.ts"
+      ]
     }
   },
   "include": [
@@ -34,5 +47,6 @@
   ],
   "exclude": [
     "node_modules"
-  ]
+  ],
+  "extends": "expo/tsconfig.base"
 }
