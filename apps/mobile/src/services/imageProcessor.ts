@@ -101,10 +101,10 @@ async function resolveImageManipulator(): Promise<ImageManipulatorLike | null> {
 
 /**
  * Processes a photo for ImgDrop handoff:
- * 1. Resizes so long edge <= TARGET_LONG_EDGE_PX (never upscales)
- * 2. Auto-orients based on EXIF
+ * 1. Preserves 100% of original image resolution without downscaling
+ * 2. Compresses and converts to WebP with full quality (1.0 - no quality loss)
  * 3. Strips EXIF / GPS metadata
- * 4. Encodes as WebP (quality 0.8) with automatic fallback to JPEG (quality 0.8)
+ * 4. Fallback to JPEG (quality 1.0) if native WebP encoding is unsupported
  */
 export async function processImage(
   inputUri: string,
@@ -114,12 +114,14 @@ export async function processImage(
     throw new Error('Invalid inputUri: must be a valid non-empty string');
   }
 
+  // Preserve full quality (1.0) with no quality loss
   const quality = options.quality ?? WEBP_QUALITY;
-  const maxLongEdge = options.maxLongEdge ?? TARGET_LONG_EDGE_PX;
 
+  // Preserve original resolution by default without downscaling.
+  // Only calculate target dimensions if maxLongEdge is explicitly requested.
   let targetDims: ImageDimensions | null = null;
-  if (options.width && options.height) {
-    targetDims = calculateTargetDimensions(options.width, options.height, maxLongEdge);
+  if (options.maxLongEdge && options.width && options.height) {
+    targetDims = calculateTargetDimensions(options.width, options.height, options.maxLongEdge);
   }
 
   const actions: Array<{ resize?: { width?: number; height?: number } }> = [];
@@ -139,8 +141,8 @@ export async function processImage(
       });
       return {
         uri: res.uri,
-        width: res.width,
-        height: res.height,
+        width: res.width ?? options.width ?? 0,
+        height: res.height ?? options.height ?? 0,
         mime: 'image/webp',
         fileName: `img_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.webp`,
       };
@@ -152,8 +154,8 @@ export async function processImage(
       });
       return {
         uri: res.uri,
-        width: res.width,
-        height: res.height,
+        width: res.width ?? options.width ?? 0,
+        height: res.height ?? options.height ?? 0,
         mime: 'image/jpeg',
         fileName: `img_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.jpg`,
       };
@@ -176,8 +178,8 @@ export async function processImage(
       );
       return {
         uri: manipulated.uri,
-        width: manipulated.width,
-        height: manipulated.height,
+        width: manipulated.width || options.width || 0,
+        height: manipulated.height || options.height || 0,
         mime: 'image/webp',
         fileName: `img_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.webp`,
       };
@@ -193,8 +195,8 @@ export async function processImage(
       );
       return {
         uri: manipulated.uri,
-        width: manipulated.width,
-        height: manipulated.height,
+        width: manipulated.width || options.width || 0,
+        height: manipulated.height || options.height || 0,
         mime: 'image/jpeg',
         fileName: `img_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.jpg`,
       };
@@ -203,8 +205,8 @@ export async function processImage(
 
   // 3. Mock fallback for headless node/test environment without Expo runtime
   const finalDims = targetDims ?? {
-    width: options.width ?? TARGET_LONG_EDGE_PX,
-    height: options.height ?? TARGET_LONG_EDGE_PX,
+    width: options.width ?? 0,
+    height: options.height ?? 0,
   };
 
   return {

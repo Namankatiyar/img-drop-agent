@@ -1,7 +1,7 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
-import { ProgressBar, Text, useTheme } from 'react-native-paper';
-import type { AppTheme } from '../theme/theme';
+import { StyleSheet, View, Text, Platform } from 'react-native';
+import { ProgressBar } from 'react-native-paper';
+import { useAppTheme } from '../theme/theme';
 
 export interface UploadProgressBarProps {
   progress: number; // 0.0 to 1.0
@@ -14,9 +14,9 @@ export const UploadProgressBar: React.FC<UploadProgressBarProps> = ({
   isUploading,
   totalImages = 0,
 }) => {
-  const theme = useTheme<AppTheme>();
+  const theme = useAppTheme();
 
-  if (!isUploading && progress <= 0) {
+  if (!isUploading) {
     return null;
   }
 
@@ -25,22 +25,34 @@ export const UploadProgressBar: React.FC<UploadProgressBarProps> = ({
   return (
     <View style={styles.container}>
       <View style={styles.labelRow}>
-        <Text variant="bodySmall" style={styles.labelText}>
+        <Text
+          style={[
+            styles.labelText,
+            { color: theme.colors.appMuted },
+          ]}
+        >
           {percentage >= 100
             ? 'Processing on server...'
             : `Uploading ${totalImages} ${totalImages === 1 ? 'image' : 'images'}...`}
         </Text>
         <Text
-          variant="labelMedium"
-          style={[styles.percentText, { color: theme.colors.primary }]}
+          style={[
+            styles.percentText,
+            { color: theme.colors.appAccent },
+          ]}
         >
           {percentage}%
         </Text>
       </View>
       <ProgressBar
         progress={progress}
-        color={theme.colors.primary}
-        style={styles.progressBar}
+        color={theme.colors.appAccent}
+        style={[
+          styles.progressBar,
+          {
+            backgroundColor: theme.dark ? '#27272A' : '#E4E4E7',
+          },
+        ]}
       />
     </View>
   );
@@ -48,8 +60,7 @@ export const UploadProgressBar: React.FC<UploadProgressBarProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 8,
-    paddingHorizontal: 4,
+    marginVertical: 10,
     width: '100%',
   },
   labelRow: {
@@ -59,14 +70,16 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   labelText: {
-    color: '#64748B',
+    fontSize: 12,
+    fontWeight: '500',
   },
   percentText: {
+    fontSize: 12,
+    fontFamily: Platform.OS === 'ios' ? 'SF Mono' : 'monospace',
     fontWeight: '700',
   },
   progressBar: {
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#E2E8F0',
+    height: 4,
+    borderRadius: 0, // Flat square edges per Stitch minimal spec
   },
 });

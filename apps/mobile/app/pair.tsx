@@ -3,39 +3,33 @@ import {
   StyleSheet,
   View,
   ScrollView,
-  SafeAreaView,
   TouchableOpacity,
-} from 'react-native';
-import {
-  SegmentedButtons,
   TextInput,
-  Button,
-  Card,
   Text,
-  HelperText,
-  Snackbar,
-  Surface,
+  Platform,
+  StatusBar as RNStatusBar,
   ActivityIndicator,
-  IconButton,
-  useTheme,
-} from 'react-native-paper';
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { IconButton, Snackbar } from 'react-native-paper';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import { parsePairingUri, DEFAULT_PORT } from '@imgdrop/shared';
 import { useAppStore } from '../src/store/useAppStore';
 import { checkHealth } from '../src/services/api';
-import type { AppTheme } from '../src/theme/theme';
+import { useAppTheme } from '../src/theme/theme';
 
 export default function PairScreen() {
   const router = useRouter();
-  const theme = useTheme<AppTheme>();
+  const theme = useAppTheme();
   const { setPairing, serverId: currentServerId, host: currentHost, port: currentPort } = useAppStore();
 
-  const [tab, setTab] = useState<'qr' | 'manual'>('qr');
+  const [tab, setTab] = useState<'qr' | 'manual'>('manual');
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
+  const [torchEnabled, setTorchEnabled] = useState(false);
 
-  // Manual inputs
+  // Manual form inputs
   const [manualHost, setManualHost] = useState(currentHost || '');
   const [manualPort, setManualPort] = useState(String(currentPort || DEFAULT_PORT));
   const [manualServerId, setManualServerId] = useState(currentServerId || '');
@@ -60,7 +54,7 @@ export default function PairScreen() {
       await setPairing(creds);
       setTimeout(() => {
         router.replace('/');
-      }, 800);
+      }, 700);
     } catch (err: any) {
       setErrorMessage(err?.message || 'Failed to save pairing.');
       setScanned(false);
@@ -98,199 +92,417 @@ export default function PairScreen() {
       // Test server connection via health check
       const health = await checkHealth(host, port, 3000);
       if (health.status !== 'ok') {
-        throw new Error('Server returned invalid health status.');
+        throw new Error('Server returned unhealthy status.');
       }
       if (health.server_id && health.server_id !== serverId) {
-        throw new Error(`Server ID mismatch: expected ${serverId}, server reported ${health.server_id}`);
+        throw new Error(`Server ID mismatch. Target server reported ${health.server_id}.`);
       }
 
       await setPairing({
         serverId,
         token,
-        port,
         host,
+        port,
       });
 
-      setSnackbarMessage('Server paired successfully!');
+      setSnackbarMessage('Paired and connected successfully!');
       setTimeout(() => {
         router.replace('/');
-      }, 600);
+      }, 700);
     } catch (err: any) {
-      setErrorMessage(`Connection failed: ${err?.message || 'Host unreachable'}`);
+      setErrorMessage(
+        `Connection failed: ${err?.message || 'Could not reach server at this IP/port.'}`
+      );
     } finally {
       setTestingConnection(false);
     }
   };
 
+  const insets = useSafeAreaInsets();
+  const topPadding = insets.top > 0
+    ? insets.top + 8
+    : Platform.OS === 'android'
+    ? (RNStatusBar.currentHeight || 24) + 8
+    : 12;
+  const bottomPadding = insets.bottom > 0 ? insets.bottom + 20 : 36;
+
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
-      <View style={styles.tabContainer}>
-        <SegmentedButtons
-          value={tab}
-          onValueChange={(val) => {
-            setTab(val as 'qr' | 'manual');
-            setErrorMessage(null);
-          }}
-          buttons={[
-            {
-              value: 'qr',
-              label: 'Scan QR Code',
-              icon: 'qrcode-scan',
-            },
-            {
-              value: 'manual',
-              label: 'Manual Setup',
-              icon: 'form-textbox',
-            },
-          ]}
-        />
+    <View style={[styles.safeArea, { backgroundColor: theme.colors.appBg }]}>
+      {/* Top App Bar with Back Button and safe area padding */}
+      <View
+        style={[
+          styles.topAppBar,
+          {
+            paddingTop: topPadding,
+            backgroundColor: theme.colors.appBg,
+            borderBottomColor: theme.colors.appBorder,
+          },
+        ]}
+      >
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backButton}
+          activeOpacity={0.7}
+          accessibilityLabel="Go Back"
+        >
+          <IconButton
+            icon="arrow-left"
+            size={22}
+            iconColor={theme.colors.appText}
+            style={styles.zeroMarginIcon}
+          />
+        </TouchableOpacity>
+        <Text style={[styles.screenTitle, { color: theme.colors.appText }]}>
+          Pair Desktop Server
+        </Text>
       </View>
 
-      {tab === 'qr' ? (
-        <View style={styles.qrContainer}>
-          {!permission ? (
-            <View style={styles.centerBox}>
-              <ActivityIndicator size="large" />
-              <Text variant="bodyMedium" style={styles.permText}>
-                Checking camera permissions...
-              </Text>
-            </View>
-          ) : !permission.granted ? (
-            <View style={styles.centerBox}>
-              <IconButton icon="camera-off" size={48} iconColor={theme.colors.error} />
-              <Text variant="titleMedium" style={styles.permTitle}>
-                Camera Access Needed
-              </Text>
-              <Text variant="bodyMedium" style={styles.permSub}>
-                Camera permission is required to scan the pairing QR code from your desktop terminal.
-              </Text>
-              <Button
-                mode="contained"
-                onPress={requestPermission}
-                style={styles.permButton}
-              >
-                Grant Camera Permission
-              </Button>
-            </View>
-          ) : (
-            <View style={styles.scannerWrapper}>
-              <CameraView
-                style={StyleSheet.absoluteFillObject}
-                barcodeScannerSettings={{
-                  barcodeTypes: ['qr'],
-                }}
-                onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
-              />
-              <View style={styles.overlay}>
-                <View style={styles.scanTarget}>
-                  <View style={[styles.corner, styles.topLeft, { borderColor: theme.colors.primary }]} />
-                  <View style={[styles.corner, styles.topRight, { borderColor: theme.colors.primary }]} />
-                  <View style={[styles.corner, styles.bottomLeft, { borderColor: theme.colors.primary }]} />
-                  <View style={[styles.corner, styles.bottomRight, { borderColor: theme.colors.primary }]} />
-                </View>
-                <Surface style={styles.scanHintCard} elevation={2}>
-                  <Text variant="bodySmall" style={styles.scanHintText}>
-                    Point camera at the QR code displayed in your desktop terminal.
-                  </Text>
-                </Surface>
-                {scanned && (
-                  <Button
-                    mode="contained"
-                    onPress={() => setScanned(false)}
-                    style={styles.rescanButton}
-                  >
-                    Tap to Scan Again
-                  </Button>
-                )}
-              </View>
-            </View>
-          )}
-        </View>
-      ) : (
-        <ScrollView
-          contentContainerStyle={styles.manualScroll}
-          keyboardShouldPersistTaps="handled"
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Segmented Switcher per Stitch Minimal Spec */}
+        <View
+          style={[
+            styles.segmentedTabs,
+            {
+              backgroundColor: theme.colors.appCard,
+              borderColor: theme.colors.appBorder,
+            },
+          ]}
         >
-          <Surface style={styles.card} elevation={1}>
-            <Text variant="titleMedium" style={styles.cardTitle}>
-              Manual Connection Settings
-            </Text>
-            <Text variant="bodySmall" style={styles.cardSubtitle}>
-              Enter desktop IP address and pairing token manually if you cannot scan the QR code.
-            </Text>
-
-            <TextInput
-              label="Server Host / IP"
-              value={manualHost}
-              onChangeText={setManualHost}
-              placeholder="e.g. 192.168.43.1 or 10.0.0.5"
-              mode="outlined"
-              style={styles.input}
-              autoCapitalize="none"
-              autoCorrect={false}
+          {/* Tab 1: Scan QR Code */}
+          <TouchableOpacity
+            onPress={() => setTab('qr')}
+            activeOpacity={0.8}
+            style={[
+              styles.tabButton,
+              tab === 'qr' && [
+                styles.tabButtonActive,
+                {
+                  backgroundColor: theme.dark ? '#27272A' : '#FFFFFF',
+                  borderColor: theme.dark ? '#3F3F46' : '#E4E4E7',
+                },
+              ],
+            ]}
+          >
+            <IconButton
+              icon="qrcode-scan"
+              size={16}
+              iconColor={tab === 'qr' ? theme.colors.appText : theme.colors.appMuted}
+              style={styles.zeroMarginIcon}
             />
-
-            <TextInput
-              label="Server Port"
-              value={manualPort}
-              onChangeText={setManualPort}
-              placeholder="8000"
-              keyboardType="number-pad"
-              mode="outlined"
-              style={styles.input}
-            />
-
-            <TextInput
-              label="Server ID"
-              value={manualServerId}
-              onChangeText={setManualServerId}
-              placeholder="e.g. srv_01HQ..."
-              mode="outlined"
-              style={styles.input}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-
-            <TextInput
-              label="Auth Token"
-              value={manualToken}
-              onChangeText={setManualToken}
-              placeholder="Secret token printed in terminal"
-              mode="outlined"
-              secureTextEntry
-              style={styles.input}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-
-            {errorMessage && (
-              <HelperText type="error" visible={!!errorMessage} style={styles.errorText}>
-                {errorMessage}
-              </HelperText>
-            )}
-
-            <Button
-              mode="contained"
-              icon="check-circle"
-              onPress={handleManualPair}
-              loading={testingConnection}
-              disabled={testingConnection}
-              style={styles.submitButton}
+            <Text
+              style={[
+                styles.tabText,
+                {
+                  color: tab === 'qr' ? theme.colors.appText : theme.colors.appMuted,
+                  fontWeight: tab === 'qr' ? '700' : '500',
+                },
+              ]}
             >
-              Test & Save Pairing
-            </Button>
-          </Surface>
-        </ScrollView>
-      )}
+              Scan QR Code
+            </Text>
+          </TouchableOpacity>
+
+          {/* Tab 2: Manual Setup */}
+          <TouchableOpacity
+            onPress={() => setTab('manual')}
+            activeOpacity={0.8}
+            style={[
+              styles.tabButton,
+              tab === 'manual' && [
+                styles.tabButtonActive,
+                {
+                  backgroundColor: theme.dark ? '#27272A' : '#FFFFFF',
+                  borderColor: theme.dark ? '#3F3F46' : '#E4E4E7',
+                },
+              ],
+            ]}
+          >
+            <IconButton
+              icon="link-variant"
+              size={16}
+              iconColor={tab === 'manual' ? theme.colors.appText : theme.colors.appMuted}
+              style={styles.zeroMarginIcon}
+            />
+            <Text
+              style={[
+                styles.tabText,
+                {
+                  color: tab === 'manual' ? theme.colors.appText : theme.colors.appMuted,
+                  fontWeight: tab === 'manual' ? '700' : '500',
+                },
+              ]}
+            >
+              Manual Setup
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Error Feedback */}
+        {errorMessage && (
+          <View
+            style={[
+              styles.errorCard,
+              {
+                borderColor: theme.colors.appDanger,
+                backgroundColor: theme.dark ? '#2A1215' : '#FEE2E2',
+              },
+            ]}
+          >
+            <IconButton
+              icon="alert-circle-outline"
+              size={18}
+              iconColor={theme.colors.appDanger}
+              style={styles.zeroMarginIcon}
+            />
+            <Text style={[styles.errorCardText, { color: theme.colors.appDanger }]}>
+              {errorMessage}
+            </Text>
+          </View>
+        )}
+
+        {/* TAB 1: QR Scanner */}
+        {tab === 'qr' && (
+          <View style={styles.qrSection}>
+            {!permission?.granted ? (
+              <View
+                style={[
+                  styles.permissionCard,
+                  {
+                    borderColor: theme.colors.appBorder,
+                    backgroundColor: theme.colors.appCard,
+                  },
+                ]}
+              >
+                <IconButton
+                  icon="camera-off"
+                  size={42}
+                  iconColor={theme.colors.appDim}
+                  style={styles.zeroMarginIcon}
+                />
+                <Text style={[styles.permissionTitle, { color: theme.colors.appText }]}>
+                  Camera Permission Required
+                </Text>
+                <Text style={[styles.permissionSubtitle, { color: theme.colors.appMuted }]}>
+                  ImgDrop needs camera access to scan your desktop pairing QR code.
+                </Text>
+                <TouchableOpacity
+                  onPress={requestPermission}
+                  activeOpacity={0.8}
+                  style={[
+                    styles.primaryFlatButton,
+                    { backgroundColor: theme.colors.appAccent },
+                  ]}
+                >
+                  <Text style={styles.primaryFlatButtonText}>Grant Camera Access</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View
+                style={[
+                  styles.cameraContainer,
+                  {
+                    borderColor: theme.colors.appBorder,
+                    backgroundColor: '#000000',
+                  },
+                ]}
+              >
+                <CameraView
+                  style={StyleSheet.absoluteFillObject}
+                  facing="back"
+                  enableTorch={torchEnabled}
+                  barcodeScannerSettings={{
+                    barcodeTypes: ['qr'],
+                  }}
+                  onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
+                />
+
+                {/* Minimalist Viewfinder Frame */}
+                <View style={styles.viewfinderOverlay}>
+                  <View
+                    style={[
+                      styles.viewfinderBox,
+                      {
+                        borderColor: theme.colors.appAccent,
+                      },
+                    ]}
+                  />
+                  <Text style={styles.viewfinderHint}>
+                    Align desktop QR code inside frame
+                  </Text>
+                </View>
+
+                {/* Torch Toggle */}
+                <TouchableOpacity
+                  onPress={() => setTorchEnabled(!torchEnabled)}
+                  style={styles.torchButton}
+                  activeOpacity={0.7}
+                >
+                  <IconButton
+                    icon={torchEnabled ? 'flashlight' : 'flashlight-off'}
+                    size={20}
+                    iconColor="#FFFFFF"
+                    style={styles.zeroMarginIcon}
+                  />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* TAB 2: Manual Setup */}
+        {tab === 'manual' && (
+          <View style={styles.manualSection}>
+            <View style={styles.manualHeader}>
+              <Text style={[styles.manualTitle, { color: theme.colors.appText }]}>
+                Manual Connection Settings
+              </Text>
+              <Text style={[styles.manualSubtitle, { color: theme.colors.appMuted }]}>
+                Enter desktop IP address and pairing token manually if you cannot scan the QR code.
+              </Text>
+            </View>
+
+            {/* Field: Server Host */}
+            <View style={styles.formGroup}>
+              <Text style={[styles.formLabel, { color: theme.colors.appMuted }]}>
+                SERVER HOST / IP
+              </Text>
+              <TextInput
+                placeholder="e.g. 192.168.1.100"
+                placeholderTextColor={theme.colors.appDim}
+                value={manualHost}
+                onChangeText={setManualHost}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="numbers-and-punctuation"
+                style={[
+                  styles.formInput,
+                  {
+                    color: theme.colors.appText,
+                    backgroundColor: theme.colors.appInput,
+                    borderColor: theme.colors.appBorder,
+                  },
+                ]}
+              />
+            </View>
+
+            {/* Field: Server Port */}
+            <View style={styles.formGroup}>
+              <Text style={[styles.formLabel, { color: theme.colors.appMuted }]}>
+                SERVER PORT
+              </Text>
+              <TextInput
+                placeholder="8000"
+                placeholderTextColor={theme.colors.appDim}
+                value={manualPort}
+                onChangeText={setManualPort}
+                keyboardType="number-pad"
+                style={[
+                  styles.formInput,
+                  {
+                    color: theme.colors.appText,
+                    backgroundColor: theme.colors.appInput,
+                    borderColor: theme.colors.appBorder,
+                  },
+                ]}
+              />
+            </View>
+
+            {/* Field: Server ID */}
+            <View style={styles.formGroup}>
+              <Text style={[styles.formLabel, { color: theme.colors.appMuted }]}>
+                SERVER ID
+              </Text>
+              <TextInput
+                placeholder="Unique Server ID"
+                placeholderTextColor={theme.colors.appDim}
+                value={manualServerId}
+                onChangeText={setManualServerId}
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={[
+                  styles.formInput,
+                  {
+                    color: theme.colors.appText,
+                    backgroundColor: theme.colors.appInput,
+                    borderColor: theme.colors.appBorder,
+                  },
+                ]}
+              />
+            </View>
+
+            {/* Field: Auth Token */}
+            <View style={styles.formGroup}>
+              <Text style={[styles.formLabel, { color: theme.colors.appMuted }]}>
+                AUTH TOKEN
+              </Text>
+              <TextInput
+                placeholder="Auth Token from terminal"
+                placeholderTextColor={theme.colors.appDim}
+                value={manualToken}
+                onChangeText={setManualToken}
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={[
+                  styles.formInput,
+                  {
+                    color: theme.colors.appText,
+                    backgroundColor: theme.colors.appInput,
+                    borderColor: theme.colors.appBorder,
+                  },
+                ]}
+              />
+            </View>
+
+            {/* Submit Action: Test & Save Pairing */}
+            <TouchableOpacity
+              onPress={handleManualPair}
+              disabled={testingConnection}
+              activeOpacity={0.8}
+              style={[
+                styles.primaryFlatButton,
+                styles.manualSubmitButton,
+                { backgroundColor: theme.colors.appAccent },
+              ]}
+            >
+              {testingConnection ? (
+                <>
+                  <ActivityIndicator size={16} color="#FFFFFF" style={{ marginRight: 8 }} />
+                  <Text style={styles.primaryFlatButtonText}>Testing Connection...</Text>
+                </>
+              ) : (
+                <>
+                  <IconButton
+                    icon="check-circle-outline"
+                    size={18}
+                    iconColor="#FFFFFF"
+                    style={styles.zeroMarginIcon}
+                  />
+                  <Text style={styles.primaryFlatButtonText}>Test &amp; Save Pairing</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+      </ScrollView>
 
       <Snackbar
         visible={!!snackbarMessage}
         onDismiss={() => setSnackbarMessage(null)}
-        duration={2500}
+        duration={3000}
+        style={{
+          backgroundColor: theme.colors.appCard,
+          borderWidth: 1,
+          borderColor: theme.colors.appBorder,
+          borderRadius: 0,
+        }}
       >
-        {snackbarMessage}
+        <Text style={{ color: theme.colors.appText }}>{snackbarMessage}</Text>
       </Snackbar>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -298,123 +510,175 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
-  tabContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
-  },
-  qrContainer: {
-    flex: 1,
-  },
-  scannerWrapper: {
-    flex: 1,
-    position: 'relative',
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
+  topAppBar: {
+    flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    paddingHorizontal: 12,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
   },
-  scanTarget: {
-    width: 240,
-    height: 240,
-    position: 'relative',
+  backButton: {
+    padding: 2,
+    marginRight: 6,
   },
-  corner: {
-    position: 'absolute',
-    width: 28,
-    height: 28,
-    borderWidth: 4,
+  screenTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    letterSpacing: -0.4,
   },
-  topLeft: {
-    top: 0,
-    left: 0,
-    borderRightWidth: 0,
-    borderBottomWidth: 0,
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 40,
   },
-  topRight: {
-    top: 0,
-    right: 0,
-    borderLeftWidth: 0,
-    borderBottomWidth: 0,
+  segmentedTabs: {
+    flexDirection: 'row',
+    borderWidth: 1,
+    borderRadius: 0, // Sharp corners
+    padding: 3,
+    marginBottom: 20,
   },
-  bottomLeft: {
-    bottom: 0,
-    left: 0,
-    borderRightWidth: 0,
-    borderTopWidth: 0,
+  tabButton: {
+    flex: 1,
+    height: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 0,
+    gap: 6,
   },
-  bottomRight: {
-    bottom: 0,
-    right: 0,
-    borderLeftWidth: 0,
-    borderTopWidth: 0,
+  tabButtonActive: {
+    borderWidth: 1,
   },
-  scanHintCard: {
-    marginTop: 32,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    maxWidth: '80%',
+  tabText: {
+    fontSize: 13,
   },
-  scanHintText: {
-    color: '#0F172A',
-    textAlign: 'center',
+  errorCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    padding: 12,
+    borderRadius: 0,
+    marginBottom: 16,
+  },
+  errorCardText: {
+    fontSize: 12,
     fontWeight: '500',
-  },
-  rescanButton: {
-    marginTop: 20,
-  },
-  centerBox: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
+    marginLeft: 8,
   },
-  permTitle: {
+  qrSection: {
+    width: '100%',
+  },
+  permissionCard: {
+    borderWidth: 1,
+    padding: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 0,
+  },
+  permissionTitle: {
+    fontSize: 16,
     fontWeight: '700',
     marginTop: 12,
+  },
+  permissionSubtitle: {
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 20,
+    lineHeight: 17,
+    maxWidth: 240,
+  },
+  cameraContainer: {
+    height: 380,
+    borderWidth: 1,
+    borderRadius: 0, // Sharp square edges
+    overflow: 'hidden',
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewfinderOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewfinderBox: {
+    width: 220,
+    height: 220,
+    borderWidth: 2,
+    borderRadius: 0, // Crisp square viewfinder
+    backgroundColor: 'transparent',
+  },
+  viewfinderHint: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 16,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  torchButton: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    borderRadius: 0,
+    padding: 4,
+  },
+  manualSection: {
+    width: '100%',
+  },
+  manualHeader: {
+    marginBottom: 20,
+  },
+  manualTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  manualSubtitle: {
+    fontSize: 13,
+    marginTop: 4,
+    lineHeight: 18,
+  },
+  formGroup: {
+    marginBottom: 16,
+  },
+  formLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
     marginBottom: 6,
   },
-  permSub: {
-    textAlign: 'center',
-    color: '#64748B',
-    marginBottom: 16,
+  formInput: {
+    height: 46,
+    borderWidth: 1,
+    borderRadius: 0, // Sharp corners
+    paddingHorizontal: 12,
+    fontSize: 14,
+    fontFamily: Platform.OS === 'ios' ? 'SF Mono' : 'monospace',
   },
-  permButton: {
-    borderRadius: 8,
+  manualSubmitButton: {
+    marginTop: 10,
+    height: 48,
   },
-  permText: {
-    marginTop: 12,
-    color: '#64748B',
+  primaryFlatButton: {
+    height: 44,
+    borderRadius: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    gap: 8,
   },
-  manualScroll: {
-    padding: 16,
+  primaryFlatButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
-  card: {
-    padding: 20,
-    borderRadius: 16,
-    backgroundColor: '#FFFFFF',
-  },
-  cardTitle: {
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  cardSubtitle: {
-    color: '#64748B',
-    marginBottom: 16,
-  },
-  input: {
-    marginBottom: 12,
-  },
-  errorText: {
-    fontSize: 13,
-    marginBottom: 8,
-  },
-  submitButton: {
-    marginTop: 8,
-    borderRadius: 10,
+  zeroMarginIcon: {
+    margin: 0,
   },
 });

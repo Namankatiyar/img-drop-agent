@@ -16,10 +16,12 @@ config.resolver.nodeModulesPaths = [
   path.resolve(monorepoRoot, 'node_modules'),
 ];
 
-// 3. Explicitly alias workspace packages so @imgdrop/shared resolves to packages/shared
+// 3. Explicitly alias workspace packages and Node polyfills
 config.resolver.extraNodeModules = {
   ...config.resolver.extraNodeModules,
   '@imgdrop/shared': path.resolve(monorepoRoot, 'packages/shared'),
+  buffer: path.resolve(projectRoot, 'node_modules/buffer'),
+  events: path.resolve(projectRoot, 'node_modules/events'),
 };
 
 // 4. Ensure TypeScript and asset extensions are included

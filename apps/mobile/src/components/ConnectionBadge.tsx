@@ -1,8 +1,8 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
-import { Chip, ActivityIndicator, useTheme } from 'react-native-paper';
+import { StyleSheet, View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { IconButton } from 'react-native-paper';
 import type { ConnectionStatus } from '../store/useAppStore';
-import type { AppTheme } from '../theme/theme';
+import { useAppTheme } from '../theme/theme';
 
 export interface ConnectionBadgeProps {
   status: ConnectionStatus;
@@ -17,84 +17,103 @@ export const ConnectionBadge: React.FC<ConnectionBadgeProps> = ({
   onPress,
   compact = false,
 }) => {
-  const theme = useTheme<AppTheme>();
+  const theme = useAppTheme();
 
   let label = 'Offline';
   let iconName = 'wifi-off';
-  let chipColor = theme.colors.statusDisconnected || '#94A3B8';
+  let badgeBg = theme.colors.appDanger || '#DC2626';
   let textColor = '#FFFFFF';
   let showSpinner = false;
 
   if (!isPaired) {
     label = 'Not Paired';
     iconName = 'qrcode-scan';
-    chipColor = theme.colors.outlineVariant || '#E2E8F0';
-    textColor = theme.colors.onSurfaceVariant || '#475569';
+    badgeBg = theme.dark ? '#27272A' : '#E4E4E7';
+    textColor = theme.dark ? '#A1A1AA' : '#71717A';
   } else if (status === 'connected') {
     label = 'Connected';
-    iconName = 'check-circle';
-    chipColor = theme.colors.statusConnected || '#10B981';
+    iconName = 'check';
+    badgeBg = theme.colors.appSuccess || '#16A34A';
     textColor = '#FFFFFF';
   } else if (status === 'discovering') {
     label = 'Discovering';
     iconName = 'radar';
-    chipColor = theme.colors.statusConnecting || '#3B82F6';
+    badgeBg = theme.colors.appAccent || '#2563EB';
     textColor = '#FFFFFF';
     showSpinner = true;
   } else {
     label = 'Offline';
     iconName = 'wifi-off';
-    chipColor = theme.colors.statusError || '#EF4444';
+    badgeBg = theme.colors.appDanger || '#DC2626';
     textColor = '#FFFFFF';
   }
 
-  return (
-    <View style={styles.container}>
-      <Chip
-        mode="flat"
-        icon={
-          showSpinner
-            ? () => <ActivityIndicator size={14} color={textColor} />
-            : iconName
-        }
-        style={[
-          styles.chip,
-          { backgroundColor: chipColor },
-          compact && styles.compactChip,
-        ]}
-        textStyle={[
-          styles.text,
-          { color: textColor },
-          compact && styles.compactText,
-        ]}
-        onPress={onPress}
-      >
-        {label}
-      </Chip>
+  const content = (
+    <View
+      style={[
+        styles.badge,
+        { backgroundColor: badgeBg },
+        compact && styles.compactBadge,
+      ]}
+    >
+      {showSpinner ? (
+        <ActivityIndicator size={12} color={textColor} style={styles.iconOffset} />
+      ) : (
+        <IconButton
+          icon={iconName}
+          size={13}
+          iconColor={textColor}
+          style={styles.iconButton}
+        />
+      )}
+      <Text style={[styles.label, { color: textColor }]}>{label}</Text>
     </View>
   );
+
+  if (onPress) {
+    return (
+      <TouchableOpacity
+        onPress={onPress}
+        activeOpacity={0.8}
+        style={styles.touchable}
+      >
+        {content}
+      </TouchableOpacity>
+    );
+  }
+
+  return content;
 };
 
 const styles = StyleSheet.create({
-  container: {
+  touchable: {
+    borderRadius: 0,
+  },
+  badge: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 0, // Sharp flat edges per Stitch Minimal spec
   },
-  chip: {
-    borderRadius: 16,
-    height: 32,
+  compactBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
   },
-  compactChip: {
-    height: 28,
-  },
-  text: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginVertical: 0,
+  iconButton: {
+    margin: 0,
+    width: 14,
+    height: 14,
     marginRight: 4,
   },
-  compactText: {
-    fontSize: 11,
-    marginRight: 2,
+  iconOffset: {
+    marginRight: 5,
+  },
+  label: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+    textTransform: 'capitalize',
   },
 });

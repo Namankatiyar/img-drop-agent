@@ -113,22 +113,29 @@ describe('ImgDrop Mobile Services Test Suite', () => {
       // Test WebP success with mock driver
       let webpAttempted = false;
       let jpegAttempted = false;
+      let capturedActions: any[] = [];
+      let capturedSaveOptions: any = null;
 
       setImageManipulatorDriver({
         async manipulate(uri, actions, saveOptions) {
+          capturedActions = actions;
+          capturedSaveOptions = saveOptions;
           if (saveOptions.format === 'webp') {
             webpAttempted = true;
-            return { uri: 'file:///tmp/output.webp', width: 1568, height: 1176 };
+            return { uri: 'file:///tmp/output.webp', width: 4000, height: 3000 };
           }
           jpegAttempted = true;
-          return { uri: 'file:///tmp/output.jpg', width: 1568, height: 1176 };
+          return { uri: 'file:///tmp/output.jpg', width: 4000, height: 3000 };
         },
       });
 
       const resWebp = await processImage('file:///input.jpg', { width: 4000, height: 3000 });
       expect(webpAttempted).toBe(true);
       expect(resWebp.mime).toBe('image/webp');
-      expect(resWebp.width).toBe(1568);
+      expect(resWebp.width).toBe(4000);
+      expect(resWebp.height).toBe(3000);
+      expect(capturedActions).toEqual([]); // No resize actions: preserves full resolution
+      expect(capturedSaveOptions.compress).toBe(1.0); // 100% quality (no quality loss)
 
       // Now test fallback to JPEG when WebP throws
       setImageManipulatorDriver({
@@ -137,13 +144,36 @@ describe('ImgDrop Mobile Services Test Suite', () => {
             throw new Error('WebP unsupported on this native version');
           }
           jpegAttempted = true;
-          return { uri: 'file:///tmp/fallback.jpg', width: 1568, height: 1176 };
+          return { uri: 'file:///tmp/fallback.jpg', width: 4000, height: 3000 };
         },
       });
 
       const resJpeg = await processImage('file:///input.jpg', { width: 4000, height: 3000 });
       expect(jpegAttempted).toBe(true);
       expect(resJpeg.mime).toBe('image/jpeg');
+      expect(resJpeg.width).toBe(4000);
+      expect(resJpeg.height).toBe(3000);
+    });
+
+    it('preserves full image resolution and maximum quality (1.0) without downscaling', async () => {
+      let passedActions: any[] = [];
+      let passedSaveOptions: any = null;
+
+      setImageManipulatorDriver({
+        async manipulate(_uri, actions, saveOptions) {
+          passedActions = actions;
+          passedSaveOptions = saveOptions;
+          return { uri: 'file:///tmp/hires.webp', width: 4032, height: 3024 };
+        },
+      });
+
+      const result = await processImage('file:///input_4k.jpg', { width: 4032, height: 3024 });
+      expect(result.width).toBe(4032);
+      expect(result.height).toBe(3024);
+      expect(result.mime).toBe('image/webp');
+      expect(passedActions).toEqual([]); // No resizing actions added
+      expect(passedSaveOptions.compress).toBe(1.0); // 100% quality (no loss)
+      expect(passedSaveOptions.format).toBe('webp');
     });
   });
 

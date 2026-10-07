@@ -1,8 +1,8 @@
 import React from 'react';
-import { StyleSheet, View, Image, TouchableOpacity } from 'react-native';
-import { Text, IconButton, Surface, useTheme } from 'react-native-paper';
+import { StyleSheet, View, Image, TouchableOpacity, Text, Platform } from 'react-native';
+import { IconButton } from 'react-native-paper';
 import type { SelectedImage } from '../store/useAppStore';
-import type { AppTheme } from '../theme/theme';
+import { useAppTheme } from '../theme/theme';
 
 export interface ImageTileProps {
   image: SelectedImage;
@@ -21,47 +21,58 @@ function formatBytes(bytes: number): string {
 export const ImageTile: React.FC<ImageTileProps> = ({
   image,
   onRemove,
-  size = 110,
+  size = 105,
 }) => {
-  const theme = useTheme<AppTheme>();
+  const theme = useAppTheme();
 
   return (
-    <Surface style={[styles.card, { width: size, height: size }]} elevation={1}>
+    <View
+      style={[
+        styles.card,
+        {
+          width: size,
+          height: size,
+          borderColor: theme.colors.appBorder,
+          backgroundColor: theme.colors.appCard,
+        },
+      ]}
+    >
       <Image
         source={{ uri: image.uri }}
         style={styles.thumbnail}
         resizeMode="cover"
       />
 
-      {/* Position Badge (1..20) */}
+      {/* Position Badge (Square, Flat 0 radius) */}
       <View
         style={[
           styles.badge,
-          { backgroundColor: theme.colors.primary },
+          { backgroundColor: theme.colors.appAccent },
         ]}
       >
-        <Text style={[styles.badgeText, { color: theme.colors.onPrimary }]}>
+        <Text style={styles.badgeText}>
           {image.position}
         </Text>
       </View>
 
-      {/* Remove Button */}
+      {/* Remove Button (Square, Flat 0 radius) */}
       <TouchableOpacity
         style={styles.removeTouchable}
         onPress={() => onRemove(image.id)}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        activeOpacity={0.7}
       >
         <View style={styles.removeBackground}>
           <IconButton
             icon="close"
-            size={14}
+            size={12}
             iconColor="#FFFFFF"
             style={styles.removeIcon}
           />
         </View>
       </TouchableOpacity>
 
-      {/* File Size / Meta Footer */}
+      {/* File Size / Meta Footer (Monospace, Sharp) */}
       <View style={styles.footerOverlay}>
         <Text style={styles.metaText} numberOfLines={1}>
           {image.size > 0
@@ -71,17 +82,17 @@ export const ImageTile: React.FC<ImageTileProps> = ({
             : 'Image'}
         </Text>
       </View>
-    </Surface>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 12,
+    borderRadius: 0, // Sharp flat edges
+    borderWidth: 1,
     overflow: 'hidden',
     position: 'relative',
     margin: 4,
-    backgroundColor: '#E2E8F0',
   },
   thumbnail: {
     width: '100%',
@@ -89,56 +100,53 @@ const styles = StyleSheet.create({
   },
   badge: {
     position: 'absolute',
-    top: 6,
-    left: 6,
-    minWidth: 22,
-    height: 22,
-    borderRadius: 11,
+    top: 0,
+    left: 0,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 0,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 4,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 1.5,
   },
   badgeText: {
+    color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '700',
     textAlign: 'center',
   },
   removeTouchable: {
     position: 'absolute',
-    top: 4,
-    right: 4,
+    top: 2,
+    right: 2,
     zIndex: 10,
   },
   removeBackground: {
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    borderRadius: 12,
-    width: 24,
-    height: 24,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    borderRadius: 0,
+    width: 20,
+    height: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
   removeIcon: {
     margin: 0,
-    width: 20,
-    height: 20,
+    width: 16,
+    height: 16,
   },
   footerOverlay: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    backgroundColor: 'rgba(9, 9, 11, 0.75)',
     paddingVertical: 2,
     paddingHorizontal: 4,
   },
   metaText: {
     color: '#FFFFFF',
-    fontSize: 10,
+    fontSize: 9.5,
+    fontFamily: Platform.OS === 'ios' ? 'SF Mono' : 'monospace',
     fontWeight: '500',
     textAlign: 'center',
   },

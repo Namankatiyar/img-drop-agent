@@ -6,16 +6,16 @@ import {
 } from 'react-native-paper';
 
 /**
- * Custom color tokens specific to the ImgDrop application
+ * Custom color tokens specific to the ImgDrop application and Stitch minimal design system
  */
 export interface ImgDropCustomColors {
-  /** Success states (e.g. transfer complete, beacon verified) */
+  /** Success states */
   success: string;
   onSuccess: string;
   successContainer: string;
   onSuccessContainer: string;
 
-  /** Warning states (e.g. storage nearly full, large file warning) */
+  /** Warning states */
   warning: string;
   onWarning: string;
   warningContainer: string;
@@ -38,6 +38,19 @@ export interface ImgDropCustomColors {
 
   /** Card and divider border color */
   cardBorder: string;
+
+  // Stitch Minimal Tokens
+  appBg: string;
+  appCard: string;
+  appBorder: string;
+  appInput: string;
+  appText: string;
+  appMuted: string;
+  appDim: string;
+  appAccent: string;
+  appAccentHover: string;
+  appDanger: string;
+  appSuccess: string;
 }
 
 /**
@@ -48,16 +61,17 @@ export type AppTheme = MD3Theme & {
 };
 
 /**
- * Material Design 3 Light Theme with ImgDrop Brand Colors
+ * Material Design 3 Light Theme aligned with Stitch Minimal Interface Redesign
  */
 export const lightTheme: AppTheme = {
   ...MD3LightTheme,
+  roundness: 0,
   colors: {
     ...MD3LightTheme.colors,
     primary: '#2563EB',
     onPrimary: '#FFFFFF',
     primaryContainer: '#DBEAFE',
-    onPrimaryContainer: '#1E3A8A',
+    onPrimaryContainer: '#1E40AF',
 
     secondary: '#0D9488',
     onSecondary: '#FFFFFF',
@@ -69,57 +83,71 @@ export const lightTheme: AppTheme = {
     tertiaryContainer: '#EDE9FE',
     onTertiaryContainer: '#4C1D95',
 
-    background: '#F8FAFC',
-    onBackground: '#0F172A',
+    background: '#F4F4F5',
+    onBackground: '#09090B',
     surface: '#FFFFFF',
-    onSurface: '#0F172A',
-    surfaceVariant: '#F1F5F9',
-    onSurfaceVariant: '#475569',
+    onSurface: '#09090B',
+    surfaceVariant: '#FAFAFA',
+    onSurfaceVariant: '#71717A',
 
-    outline: '#CBD5E1',
-    outlineVariant: '#E2E8F0',
+    outline: '#E4E4E7',
+    outlineVariant: '#F4F4F5',
 
-    error: '#EF4444',
+    error: '#DC2626',
     onError: '#FFFFFF',
     errorContainer: '#FEE2E2',
     onErrorContainer: '#991B1B',
 
     // ImgDrop custom extensions
-    success: '#10B981',
+    success: '#16A34A',
     onSuccess: '#FFFFFF',
-    successContainer: '#D1FAE5',
-    onSuccessContainer: '#065F46',
+    successContainer: '#DCFCE7',
+    onSuccessContainer: '#14532D',
 
-    warning: '#F59E0B',
+    warning: '#D97706',
     onWarning: '#FFFFFF',
     warningContainer: '#FEF3C7',
-    onWarningContainer: '#92400E',
+    onWarningContainer: '#78350F',
 
-    info: '#3B82F6',
+    info: '#2563EB',
     onInfo: '#FFFFFF',
     infoContainer: '#DBEAFE',
     onInfoContainer: '#1E40AF',
 
-    statusConnected: '#10B981',
-    statusConnecting: '#3B82F6',
-    statusDisconnected: '#94A3B8',
-    statusError: '#EF4444',
+    statusConnected: '#16A34A',
+    statusConnecting: '#2563EB',
+    statusDisconnected: '#DC2626',
+    statusError: '#DC2626',
 
-    beaconActive: '#06B6D4',
-    cardBorder: '#E2E8F0',
+    beaconActive: '#0284C7',
+    cardBorder: '#E4E4E7',
+
+    // Stitch Minimal Tokens
+    appBg: '#F4F4F5',
+    appCard: '#FFFFFF',
+    appBorder: '#E4E4E7',
+    appInput: '#FFFFFF',
+    appText: '#09090B',
+    appMuted: '#71717A',
+    appDim: '#A1A1AA',
+    appAccent: '#2563EB',
+    appAccentHover: '#1D4ED8',
+    appDanger: '#DC2626',
+    appSuccess: '#16A34A',
   },
 };
 
 /**
- * Material Design 3 Dark Theme with ImgDrop Brand Colors
+ * Material Design 3 Dark Theme aligned with Stitch Minimal Interface Redesign
  */
 export const darkTheme: AppTheme = {
   ...MD3DarkTheme,
+  roundness: 0,
   colors: {
     ...MD3DarkTheme.colors,
-    primary: '#60A5FA',
-    onPrimary: '#1E3A8A',
-    primaryContainer: '#1E40AF',
+    primary: '#2563EB',
+    onPrimary: '#FFFFFF',
+    primaryContainer: '#1E3A8A',
     onPrimaryContainer: '#DBEAFE',
 
     secondary: '#2DD4BF',
@@ -132,44 +160,57 @@ export const darkTheme: AppTheme = {
     tertiaryContainer: '#5B21B6',
     onTertiaryContainer: '#EDE9FE',
 
-    background: '#0B0F19',
-    onBackground: '#F8FAFC',
-    surface: '#151E2E',
-    onSurface: '#F8FAFC',
-    surfaceVariant: '#1E293B',
-    onSurfaceVariant: '#CBD5E1',
+    background: '#09090B',
+    onBackground: '#FFFFFF',
+    surface: '#18181B',
+    onSurface: '#FFFFFF',
+    surfaceVariant: '#121215',
+    onSurfaceVariant: '#A1A1AA',
 
-    outline: '#334155',
-    outlineVariant: '#1E293B',
+    outline: '#27272A',
+    outlineVariant: '#18181B',
 
-    error: '#F87171',
-    onError: '#450A0A',
-    errorContainer: '#7F1D1D',
+    error: '#DC2626',
+    onError: '#FFFFFF',
+    errorContainer: '#450A0A',
     onErrorContainer: '#FEE2E2',
 
     // ImgDrop custom extensions
-    success: '#34D399',
-    onSuccess: '#064E3B',
-    successContainer: '#065F46',
-    onSuccessContainer: '#D1FAE5',
+    success: '#16A34A',
+    onSuccess: '#FFFFFF',
+    successContainer: '#052E16',
+    onSuccessContainer: '#BBF7D0',
 
-    warning: '#FBBF24',
-    onWarning: '#78350F',
-    warningContainer: '#92400E',
+    warning: '#D97706',
+    onWarning: '#FFFFFF',
+    warningContainer: '#451A03',
     onWarningContainer: '#FEF3C7',
 
-    info: '#60A5FA',
-    onInfo: '#1E3A8A',
-    infoContainer: '#1E40AF',
+    info: '#2563EB',
+    onInfo: '#FFFFFF',
+    infoContainer: '#1E3A8A',
     onInfoContainer: '#DBEAFE',
 
-    statusConnected: '#34D399',
-    statusConnecting: '#60A5FA',
-    statusDisconnected: '#64748B',
-    statusError: '#F87171',
+    statusConnected: '#16A34A',
+    statusConnecting: '#2563EB',
+    statusDisconnected: '#DC2626',
+    statusError: '#DC2626',
 
-    beaconActive: '#22D3EE',
-    cardBorder: '#1E293B',
+    beaconActive: '#0284C7',
+    cardBorder: '#27272A',
+
+    // Stitch Minimal Tokens
+    appBg: '#09090B',
+    appCard: '#18181B',
+    appBorder: '#27272A',
+    appInput: '#121215',
+    appText: '#FFFFFF',
+    appMuted: '#A1A1AA',
+    appDim: '#52525B',
+    appAccent: '#2563EB',
+    appAccentHover: '#1D4ED8',
+    appDanger: '#DC2626',
+    appSuccess: '#16A34A',
   },
 };
 

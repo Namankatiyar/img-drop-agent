@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import qrcode from 'qrcode-terminal';
 import { generatePairingUri } from '@imgdrop/shared';
@@ -38,16 +39,44 @@ export function loadOrInitCredentials(configFile: string): AuthCredentials {
   return credentials;
 }
 
+export function getLanIpAddresses(): string[] {
+  const interfaces = os.networkInterfaces();
+  const ips: { name: string; address: string; isVirtual: boolean }[] = [];
+
+  for (const name of Object.keys(interfaces)) {
+    const netList = interfaces[name];
+    if (!netList) continue;
+
+    for (const net of netList) {
+      if (net.family === 'IPv4' && !net.internal) {
+        const lower = name.toLowerCase();
+        const isVirtual =
+          lower.includes('virtual') ||
+          lower.includes('vbox') ||
+          lower.includes('vmnet') ||
+          lower.includes('wsl') ||
+          net.address.startsWith('192.168.56.');
+        ips.push({ name, address: net.address, isVirtual });
+      }
+    }
+  }
+
+  ips.sort((a, b) => (a.isVirtual === b.isVirtual ? 0 : a.isVirtual ? 1 : -1));
+  return ips.map((item) => item.address);
+}
+
 export function buildPairingUri(serverId: string, token: string, port: number, host?: string): string {
-  return generatePairingUri({ serverId, token, port, host });
+  const detectedHost = host || getLanIpAddresses()[0];
+  return generatePairingUri({ serverId, token, port, host: detectedHost });
 }
 
 export function displayPairingInfo(credentials: AuthCredentials, port: number, host?: string): string {
+  const detectedHost = host || getLanIpAddresses()[0];
   const creds: PairingCredentials = {
     serverId: credentials.server_id,
     token: credentials.token,
     port,
-    host,
+    host: detectedHost,
   };
   const uri = generatePairingUri(creds);
 
@@ -58,6 +87,9 @@ export function displayPairingInfo(credentials: AuthCredentials, port: number, h
   console.log('='.repeat(50));
   console.log(`Server ID:   ${credentials.server_id}`);
   console.log(`Token:       ${credentials.token}`);
+  if (detectedHost) {
+    console.log(`Host IP:     ${detectedHost}`);
+  }
   console.log(`Port:        ${port}`);
   console.log(`Pairing URI: ${uri}`);
   console.log('='.repeat(50) + '\n');

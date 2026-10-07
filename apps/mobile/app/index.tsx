@@ -1,42 +1,33 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   StyleSheet,
   View,
   ScrollView,
-  SafeAreaView,
   TouchableOpacity,
-} from 'react-native';
-import {
-  Appbar,
-  Button,
-  Card,
   TextInput,
   Text,
-  Banner,
-  Modal,
-  Portal,
-  IconButton,
-  Surface,
-  useTheme,
-  Divider,
-} from 'react-native-paper';
+  Platform,
+  StatusBar as RNStatusBar,
+  ActivityIndicator,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { IconButton, Portal, Modal, Divider } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { MAX_FILES, MAX_NOTE_LENGTH } from '@imgdrop/shared';
 import { useAppStore } from '../src/store/useAppStore';
 import { ConnectionBadge } from '../src/components/ConnectionBadge';
 import { ImageTile } from '../src/components/ImageTile';
 import { UploadProgressBar } from '../src/components/UploadProgressBar';
-import type { AppTheme } from '../src/theme/theme';
+import { useAppTheme } from '../src/theme/theme';
 
 export default function MainUploadScreen() {
   const router = useRouter();
-  const theme = useTheme<AppTheme>();
+  const theme = useAppTheme();
+  const [noteFocused, setNoteFocused] = useState(false);
 
   const {
     isPaired,
     connectionStatus,
-    host,
-    port,
     selectedImages,
     note,
     isUploading,
@@ -63,114 +54,209 @@ export default function MainUploadScreen() {
   };
 
   const remainingSlots = MAX_FILES - selectedImages.length;
+  const isSubmitDisabled = isUploading || selectedImages.length === 0 || !isPaired;
+
+  const insets = useSafeAreaInsets();
+  const topPadding = insets.top > 0
+    ? insets.top + 8
+    : Platform.OS === 'android'
+    ? (RNStatusBar.currentHeight || 24) + 8
+    : 12;
+  const bottomPadding = insets.bottom > 0 ? insets.bottom + 8 : 14;
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
-      {/* Material 3 Appbar */}
-      <Appbar.Header style={{ backgroundColor: theme.colors.surface }}>
-        <Appbar.Content
-          title="ImgDrop"
-          titleStyle={{ fontWeight: '700', fontSize: 20 }}
-        />
-        <ConnectionBadge
-          status={connectionStatus}
-          isPaired={isPaired}
-          onPress={handleBadgePress}
-        />
-        <Appbar.Action
-          icon="cog-outline"
-          onPress={() => router.push('/settings')}
-        />
-      </Appbar.Header>
+    <View style={[styles.safeArea, { backgroundColor: theme.colors.appBg }]}>
+      {/* Top App Bar per Stitch Minimal Spec with safe area padding */}
+      <View
+        style={[
+          styles.topAppBar,
+          {
+            paddingTop: topPadding,
+            backgroundColor: theme.colors.appBg,
+            borderBottomColor: theme.colors.appBorder,
+          },
+        ]}
+      >
+        <Text style={[styles.brandTitle, { color: theme.colors.appText }]}>
+          ImgDrop
+        </Text>
+        <View style={styles.topRightControls}>
+          <ConnectionBadge
+            status={connectionStatus}
+            isPaired={isPaired}
+            onPress={handleBadgePress}
+          />
+          <TouchableOpacity
+            onPress={() => router.push('/settings')}
+            style={styles.settingsTouchable}
+            accessibilityLabel="Settings"
+            activeOpacity={0.7}
+          >
+            <IconButton
+              icon="cog-outline"
+              size={22}
+              iconColor={theme.colors.appMuted}
+              style={styles.settingsIcon}
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        {/* Unpaired Notice Banner */}
+        {/* Unpaired Notice Card */}
         {!isPaired && (
-          <Surface style={[styles.noticeCard, { backgroundColor: theme.colors.primaryContainer }]} elevation={0}>
-            <View style={styles.noticeRow}>
-              <IconButton icon="qrcode-scan" size={24} iconColor={theme.colors.primary} />
-              <View style={styles.noticeTextContainer}>
-                <Text variant="titleSmall" style={{ color: theme.colors.onPrimaryContainer, fontWeight: '700' }}>
+          <View
+            style={[
+              styles.unpairedCard,
+              {
+                borderColor: theme.colors.appBorder,
+                backgroundColor: theme.colors.appCard,
+              },
+            ]}
+          >
+            <View style={styles.unpairedHeader}>
+              <IconButton
+                icon="qrcode-scan"
+                size={22}
+                iconColor={theme.colors.appAccent}
+                style={styles.zeroMarginIcon}
+              />
+              <View style={styles.unpairedTextGroup}>
+                <Text style={[styles.unpairedTitle, { color: theme.colors.appText }]}>
                   Desktop Not Paired
                 </Text>
-                <Text variant="bodySmall" style={{ color: theme.colors.onPrimaryContainer }}>
+                <Text style={[styles.unpairedSubtitle, { color: theme.colors.appMuted }]}>
                   Scan the QR code in your desktop terminal to start dropping images.
                 </Text>
               </View>
             </View>
-            <Button
-              mode="contained"
-              icon="camera"
+            <TouchableOpacity
               onPress={() => router.push('/pair')}
-              style={styles.noticeButton}
+              activeOpacity={0.8}
+              style={[
+                styles.unpairedButton,
+                { backgroundColor: theme.colors.appAccent },
+              ]}
             >
-              Pair with Desktop
-            </Button>
-          </Surface>
+              <IconButton
+                icon="camera"
+                size={16}
+                iconColor="#FFFFFF"
+                style={styles.zeroMarginIcon}
+              />
+              <Text style={styles.unpairedButtonText}>Pair with Desktop</Text>
+            </TouchableOpacity>
+          </View>
         )}
 
         {/* Error Banner with Retry */}
         {lastError && (
-          <Banner
-            visible={!!lastError}
-            icon="alert-circle"
-            actions={[
+          <View
+            style={[
+              styles.errorBanner,
               {
-                label: 'Dismiss',
-                onPress: clearLastError,
-              },
-              {
-                label: 'Retry Upload',
-                onPress: retrySubmit,
+                borderColor: theme.colors.appDanger,
+                backgroundColor: theme.dark ? '#2A1215' : '#FEE2E2',
               },
             ]}
-            style={[styles.errorBanner, { backgroundColor: theme.colors.errorContainer }]}
           >
-            <Text style={{ color: theme.colors.onErrorContainer, fontWeight: '500' }}>
-              {lastError}
-            </Text>
-          </Banner>
+            <View style={styles.errorTextRow}>
+              <IconButton
+                icon="alert-circle-outline"
+                size={18}
+                iconColor={theme.colors.appDanger}
+                style={styles.zeroMarginIcon}
+              />
+              <Text
+                style={[styles.errorText, { color: theme.colors.appDanger }]}
+                numberOfLines={3}
+              >
+                {lastError}
+              </Text>
+            </View>
+            <View style={styles.errorActionsRow}>
+              <TouchableOpacity
+                onPress={clearLastError}
+                style={styles.errorActionBtn}
+              >
+                <Text style={[styles.errorActionText, { color: theme.colors.appMuted }]}>
+                  Dismiss
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={retrySubmit}
+                style={[
+                  styles.errorActionBtn,
+                  styles.retryBtn,
+                  { borderColor: theme.colors.appDanger },
+                ]}
+              >
+                <Text style={[styles.errorActionText, { color: theme.colors.appDanger, fontWeight: '700' }]}>
+                  Retry Upload
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         )}
 
-        {/* Selected Images Section */}
-        <Surface style={styles.sectionCard} elevation={1}>
-          <View style={styles.sectionHeader}>
+        {/* Selected Photos Card */}
+        <View
+          style={[
+            styles.sectionCard,
+            {
+              borderColor: theme.colors.appBorder,
+              backgroundColor: theme.colors.appCard,
+            },
+          ]}
+        >
+          {/* Section Header */}
+          <View style={styles.sectionHeaderRow}>
             <View>
-              <Text variant="titleMedium" style={styles.sectionTitle}>
+              <Text style={[styles.sectionTitle, { color: theme.colors.appText }]}>
                 Selected Photos
               </Text>
-              <Text variant="bodySmall" style={styles.sectionSubtitle}>
+              <Text style={[styles.sectionSubtitle, { color: theme.colors.appMuted }]}>
                 {selectedImages.length} of {MAX_FILES} maximum
               </Text>
             </View>
             {selectedImages.length > 0 && (
-              <Button
-                mode="text"
-                compact
-                textColor={theme.colors.error}
+              <TouchableOpacity
                 onPress={clearSelectedImages}
                 disabled={isUploading}
+                style={styles.clearAllTouchable}
               >
-                Clear All
-              </Button>
+                <Text style={[styles.clearAllText, { color: theme.colors.appDanger }]}>
+                  Clear All
+                </Text>
+              </TouchableOpacity>
             )}
           </View>
 
-          {/* Image Grid Preview */}
+          {/* Empty Dropzone OR Photo Grid */}
           {selectedImages.length === 0 ? (
-            <View style={styles.emptyGallery}>
+            <View
+              style={[
+                styles.emptyDropzone,
+                {
+                  borderColor: theme.colors.appBorder,
+                  backgroundColor: theme.colors.appBg,
+                },
+              ]}
+            >
               <IconButton
-                icon="image-multiple-outline"
-                size={48}
-                iconColor={theme.colors.outline}
+                icon="image-outline"
+                size={42}
+                iconColor={theme.colors.appDim}
+                style={styles.zeroMarginIcon}
               />
-              <Text variant="bodyMedium" style={styles.emptyText}>
+              <Text style={[styles.emptyTitle, { color: theme.colors.appText }]}>
                 No photos selected yet
               </Text>
-              <Text variant="bodySmall" style={styles.emptySubtext}>
+              <Text style={[styles.emptySubtitle, { color: theme.colors.appMuted }]}>
                 Take photos with camera or select from your gallery.
               </Text>
             </View>
@@ -186,57 +272,115 @@ export default function MainUploadScreen() {
             </View>
           )}
 
-          {/* Action Buttons: Camera & Gallery */}
-          <View style={styles.actionRow}>
-            <Button
-              mode="outlined"
-              icon="camera"
+          {/* 2-Column Action Buttons Row */}
+          <View style={styles.actionButtonsRow}>
+            {/* Take Photo Button (Outlined hairline) */}
+            <TouchableOpacity
               onPress={captureImage}
               disabled={isUploading || remainingSlots <= 0}
-              style={styles.actionButton}
+              activeOpacity={0.7}
+              style={[
+                styles.actionBtn,
+                styles.takePhotoBtn,
+                {
+                  borderColor: theme.colors.appBorder,
+                  backgroundColor: theme.dark ? '#18181B' : '#FFFFFF',
+                  opacity: isUploading || remainingSlots <= 0 ? 0.5 : 1,
+                },
+              ]}
             >
-              Take Photo
-            </Button>
-            <Button
-              mode="contained-tonal"
-              icon="image-plus"
+              <IconButton
+                icon="camera-outline"
+                size={18}
+                iconColor={theme.colors.appAccent}
+                style={styles.btnIcon}
+              />
+              <Text style={[styles.takePhotoText, { color: theme.colors.appText }]}>
+                Take Photo
+              </Text>
+            </TouchableOpacity>
+
+            {/* Gallery Button (Solid accent) */}
+            <TouchableOpacity
               onPress={pickImages}
               disabled={isUploading || remainingSlots <= 0}
-              style={styles.actionButton}
+              activeOpacity={0.8}
+              style={[
+                styles.actionBtn,
+                {
+                  backgroundColor: theme.colors.appAccent,
+                  opacity: isUploading || remainingSlots <= 0 ? 0.5 : 1,
+                },
+              ]}
             >
-              Gallery ({remainingSlots} left)
-            </Button>
+              <IconButton
+                icon="image-multiple-outline"
+                size={18}
+                iconColor="#FFFFFF"
+                style={styles.btnIcon}
+              />
+              <Text style={styles.galleryText}>
+                Gallery ({remainingSlots} left)
+              </Text>
+            </TouchableOpacity>
           </View>
-        </Surface>
+        </View>
 
-        {/* Note Card */}
-        <Surface style={styles.sectionCard} elevation={1}>
-          <Text variant="titleMedium" style={styles.sectionTitle}>
+        {/* Drop Note Card */}
+        <View
+          style={[
+            styles.sectionCard,
+            {
+              borderColor: theme.colors.appBorder,
+              backgroundColor: theme.colors.appCard,
+            },
+          ]}
+        >
+          <Text style={[styles.sectionTitle, { color: theme.colors.appText }]}>
             Drop Note (Optional)
           </Text>
-          <TextInput
-            mode="outlined"
-            placeholder="Add context or instructions for your desktop..."
-            value={note}
-            onChangeText={setNote}
-            multiline
-            numberOfLines={3}
-            maxLength={MAX_NOTE_LENGTH}
-            disabled={isUploading}
-            style={styles.noteInput}
-          />
-          <View style={styles.counterRow}>
+          <View
+            style={[
+              styles.noteInputContainer,
+              {
+                borderColor: noteFocused
+                  ? theme.colors.appAccent
+                  : theme.colors.appBorder,
+                backgroundColor: theme.colors.appInput,
+              },
+            ]}
+          >
+            <TextInput
+              placeholder="Add context or instructions for your desktop..."
+              placeholderTextColor={theme.colors.appDim}
+              value={note}
+              onChangeText={setNote}
+              multiline
+              numberOfLines={3}
+              maxLength={MAX_NOTE_LENGTH}
+              editable={!isUploading}
+              onFocus={() => setNoteFocused(true)}
+              onBlur={() => setNoteFocused(false)}
+              style={[styles.noteTextInput, { color: theme.colors.appText }]}
+              textAlignVertical="top"
+            />
+          </View>
+          <View style={styles.charCounterContainer}>
             <Text
-              variant="labelSmall"
               style={[
-                styles.counterText,
-                note.length >= MAX_NOTE_LENGTH && { color: theme.colors.error },
+                styles.charCounterText,
+                {
+                  color:
+                    note.length >= MAX_NOTE_LENGTH
+                      ? theme.colors.appDanger
+                      : theme.colors.appMuted,
+                },
               ]}
             >
               {note.length} / {MAX_NOTE_LENGTH}
             </Text>
           </View>
-        </Surface>
+        </View>
 
         {/* Upload Progress Bar */}
         <UploadProgressBar
@@ -244,90 +388,154 @@ export default function MainUploadScreen() {
           isUploading={isUploading}
           totalImages={selectedImages.length}
         />
-
-        {/* Submit Upload Button */}
-        <Button
-          mode="contained"
-          icon="cloud-upload"
-          onPress={submitGroup}
-          loading={isUploading}
-          disabled={isUploading || selectedImages.length === 0 || !isPaired}
-          contentStyle={styles.uploadButtonContent}
-          style={styles.uploadButton}
-        >
-          {isUploading
-            ? 'Sending Images...'
-            : `Drop ${selectedImages.length} ${selectedImages.length === 1 ? 'Photo' : 'Photos'} to Desktop`}
-        </Button>
       </ScrollView>
 
-      {/* Success Modal */}
+      {/* Bottom Action CTA Fixed at Bottom */}
+      <View
+        style={[
+          styles.bottomActionContainer,
+          {
+            paddingBottom: bottomPadding,
+            backgroundColor: theme.colors.appBg,
+            borderTopColor: theme.colors.appBorder,
+          },
+        ]}
+      >
+        <TouchableOpacity
+          onPress={submitGroup}
+          disabled={isSubmitDisabled}
+          activeOpacity={0.8}
+          style={[
+            styles.submitCtaButton,
+            isSubmitDisabled
+              ? {
+                  backgroundColor: theme.dark ? '#27272A80' : '#E4E4E7',
+                  borderColor: theme.colors.appBorder,
+                }
+              : {
+                  backgroundColor: theme.colors.appAccent,
+                  borderColor: theme.colors.appAccent,
+                },
+          ]}
+        >
+          {isUploading ? (
+            <>
+              <ActivityIndicator size={16} color="#FFFFFF" style={{ marginRight: 8 }} />
+              <Text style={styles.submitCtaTextActive}>Sending Images...</Text>
+            </>
+          ) : (
+            <>
+              <IconButton
+                icon="cloud-upload-outline"
+                size={20}
+                iconColor={isSubmitDisabled ? theme.colors.appMuted : '#FFFFFF'}
+                style={styles.zeroMarginIcon}
+              />
+              <Text
+                style={[
+                  styles.submitCtaText,
+                  {
+                    color: isSubmitDisabled
+                      ? theme.colors.appMuted
+                      : '#FFFFFF',
+                  },
+                ]}
+              >
+                Drop {selectedImages.length} {selectedImages.length === 1 ? 'Photo' : 'Photos'} to Desktop
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {/* Success Modal (Sharp flat edges per Stitch Minimal Spec) */}
       <Portal>
         <Modal
           visible={!!lastCreatedGroup}
           onDismiss={clearLastCreatedGroup}
           contentContainerStyle={[
             styles.modalContainer,
-            { backgroundColor: theme.colors.surface },
+            {
+              backgroundColor: theme.colors.appCard,
+              borderColor: theme.colors.appBorder,
+            },
           ]}
         >
           <View style={styles.modalContent}>
             <View
               style={[
-                styles.successIconCircle,
-                { backgroundColor: theme.colors.successContainer },
+                styles.successIconBadge,
+                { backgroundColor: theme.colors.appSuccess },
               ]}
             >
               <IconButton
-                icon="check-circle"
-                size={40}
-                iconColor={theme.colors.success}
+                icon="check"
+                size={28}
+                iconColor="#FFFFFF"
+                style={styles.zeroMarginIcon}
               />
             </View>
 
-            <Text variant="headlineSmall" style={styles.modalTitle}>
+            <Text style={[styles.modalTitle, { color: theme.colors.appText }]}>
               Drop Complete!
             </Text>
-            <Text variant="bodyMedium" style={styles.modalSubtitle}>
+            <Text style={[styles.modalSubtitle, { color: theme.colors.appMuted }]}>
               Images successfully delivered to desktop handoff folder.
             </Text>
 
-            <Divider style={styles.modalDivider} />
+            <Divider
+              style={[
+                styles.modalDivider,
+                { backgroundColor: theme.colors.appBorder },
+              ]}
+            />
 
             <View style={styles.metaRow}>
-              <Text variant="bodySmall" style={styles.metaLabel}>Group ID:</Text>
-              <Text variant="bodySmall" style={styles.metaValue} numberOfLines={1}>
+              <Text style={[styles.metaLabel, { color: theme.colors.appMuted }]}>
+                Group ID:
+              </Text>
+              <Text
+                style={[styles.metaValue, { color: theme.colors.appText }]}
+                numberOfLines={1}
+              >
                 {lastCreatedGroup?.id}
               </Text>
             </View>
 
             <View style={styles.metaRow}>
-              <Text variant="bodySmall" style={styles.metaLabel}>Images:</Text>
-              <Text variant="bodySmall" style={styles.metaValue}>
+              <Text style={[styles.metaLabel, { color: theme.colors.appMuted }]}>
+                Images:
+              </Text>
+              <Text style={[styles.metaValue, { color: theme.colors.appText }]}>
                 {lastCreatedGroup?.image_count ?? selectedImages.length} files
               </Text>
             </View>
 
             <View style={styles.metaRow}>
-              <Text variant="bodySmall" style={styles.metaLabel}>Time:</Text>
-              <Text variant="bodySmall" style={styles.metaValue}>
+              <Text style={[styles.metaLabel, { color: theme.colors.appMuted }]}>
+                Time:
+              </Text>
+              <Text style={[styles.metaValue, { color: theme.colors.appText }]}>
                 {lastCreatedGroup?.created_at
                   ? new Date(lastCreatedGroup.created_at).toLocaleTimeString()
                   : new Date().toLocaleTimeString()}
               </Text>
             </View>
 
-            <Button
-              mode="contained"
+            <TouchableOpacity
               onPress={clearLastCreatedGroup}
-              style={styles.modalButton}
+              activeOpacity={0.8}
+              style={[
+                styles.modalDoneButton,
+                { backgroundColor: theme.colors.appAccent },
+              ]}
             >
-              Done
-            </Button>
+              <Text style={styles.modalDoneButtonText}>Done</Text>
+            </TouchableOpacity>
           </View>
         </Modal>
       </Portal>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -335,149 +543,299 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
+  topAppBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+  },
+  brandTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+  },
+  topRightControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  settingsTouchable: {
+    padding: 2,
+  },
+  settingsIcon: {
+    margin: 0,
+    width: 28,
+    height: 28,
+  },
   scrollContent: {
     padding: 16,
-    paddingBottom: 40,
+    paddingBottom: 30,
   },
-  noticeCard: {
+  unpairedCard: {
+    borderWidth: 1,
     padding: 14,
-    borderRadius: 16,
+    borderRadius: 0,
     marginBottom: 16,
   },
-  noticeRow: {
+  unpairedHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  unpairedTextGroup: {
+    flex: 1,
+    marginLeft: 8,
+  },
+  unpairedTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  unpairedSubtitle: {
+    fontSize: 12,
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  unpairedButton: {
+    height: 40,
+    borderRadius: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    justifyContent: 'center',
   },
-  noticeTextContainer: {
-    flex: 1,
+  unpairedButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
     marginLeft: 4,
   },
-  noticeButton: {
-    marginTop: 4,
-    borderRadius: 8,
-  },
   errorBanner: {
-    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+    borderRadius: 0,
     marginBottom: 16,
+  },
+  errorTextRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  errorText: {
+    fontSize: 12,
+    fontWeight: '500',
+    flex: 1,
+    marginLeft: 6,
+  },
+  errorActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 8,
+  },
+  errorActionBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  retryBtn: {
+    borderWidth: 1,
+    borderRadius: 0,
+  },
+  errorActionText: {
+    fontSize: 11,
   },
   sectionCard: {
+    borderWidth: 1,
     padding: 16,
-    borderRadius: 16,
-    backgroundColor: '#FFFFFF',
+    borderRadius: 0, // Sharp square edges
     marginBottom: 16,
   },
-  sectionHeader: {
+  sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 12,
   },
   sectionTitle: {
-    fontWeight: '700',
-    color: '#0F172A',
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: -0.3,
   },
   sectionSubtitle: {
-    color: '#64748B',
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 2,
   },
-  emptyGallery: {
+  clearAllTouchable: {
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+  },
+  clearAllText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  emptyDropzone: {
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    paddingVertical: 36,
+    paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 32,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderStyle: 'dashed',
-    marginBottom: 16,
+    borderRadius: 0, // Sharp corners
+    marginBottom: 14,
   },
-  emptyText: {
-    color: '#475569',
+  emptyTitle: {
+    fontSize: 14,
     fontWeight: '600',
-    marginTop: 4,
+    marginTop: 8,
   },
-  emptySubtext: {
-    color: '#94A3B8',
-    marginTop: 2,
+  emptySubtitle: {
+    fontSize: 12,
+    marginTop: 4,
     textAlign: 'center',
-    paddingHorizontal: 16,
+    maxWidth: 220,
+    lineHeight: 16,
   },
   gridContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'flex-start',
-    marginBottom: 14,
+    marginHorizontal: -4,
+    marginBottom: 12,
   },
-  actionRow: {
+  actionButtonsRow: {
     flexDirection: 'row',
-    gap: 12,
-  },
-  actionButton: {
-    flex: 1,
-    borderRadius: 10,
-  },
-  noteInput: {
-    backgroundColor: 'transparent',
-    marginTop: 8,
-  },
-  counterRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
+    gap: 10,
     marginTop: 4,
   },
-  counterText: {
-    color: '#94A3B8',
+  actionBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 0, // Sharp corners
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
   },
-  uploadButton: {
-    marginTop: 12,
-    borderRadius: 12,
+  takePhotoBtn: {
+    borderWidth: 1,
   },
-  uploadButtonContent: {
-    paddingVertical: 8,
+  takePhotoText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  galleryText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  btnIcon: {
+    margin: 0,
+    marginRight: 4,
+    width: 20,
+    height: 20,
+  },
+  noteInputContainer: {
+    borderWidth: 1,
+    borderRadius: 0, // Flat square edges
+    padding: 10,
+    marginTop: 10,
+  },
+  noteTextInput: {
+    fontSize: 13,
+    minHeight: 64,
+    padding: 0,
+  },
+  charCounterContainer: {
+    alignItems: 'flex-end',
+    marginTop: 6,
+  },
+  charCounterText: {
+    fontSize: 11,
+    fontFamily: Platform.OS === 'ios' ? 'SF Mono' : 'monospace',
+  },
+  bottomActionContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+  },
+  submitCtaButton: {
+    height: 48,
+    borderRadius: 0, // Sharp square edges per Stitch minimal spec
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  submitCtaText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  submitCtaTextActive: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
   },
   modalContainer: {
     margin: 20,
-    borderRadius: 20,
-    padding: 24,
+    padding: 20,
+    borderRadius: 0, // Sharp square edges
+    borderWidth: 1,
   },
   modalContent: {
     alignItems: 'center',
   },
-  successIconCircle: {
-    borderRadius: 36,
+  successIconBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: 0, // Square badge
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 12,
   },
   modalTitle: {
+    fontSize: 18,
     fontWeight: '700',
     marginBottom: 4,
   },
   modalSubtitle: {
-    color: '#64748B',
+    fontSize: 13,
     textAlign: 'center',
     marginBottom: 16,
+    lineHeight: 18,
   },
   modalDivider: {
     width: '100%',
-    marginBottom: 16,
+    height: 1,
+    marginBottom: 14,
   },
   metaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '100%',
-    marginBottom: 8,
+    paddingVertical: 4,
   },
   metaLabel: {
-    color: '#64748B',
-    fontWeight: '600',
+    fontSize: 12,
   },
   metaValue: {
-    color: '#0F172A',
+    fontSize: 12,
+    fontFamily: Platform.OS === 'ios' ? 'SF Mono' : 'monospace',
     fontWeight: '600',
-    maxWidth: '70%',
   },
-  modalButton: {
-    marginTop: 16,
+  modalDoneButton: {
     width: '100%',
-    borderRadius: 10,
+    height: 44,
+    borderRadius: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 18,
+  },
+  modalDoneButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  zeroMarginIcon: {
+    margin: 0,
   },
 });

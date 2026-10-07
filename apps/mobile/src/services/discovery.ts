@@ -138,12 +138,11 @@ export async function listenForBeacon(
 ): Promise<DiscoveredServer | null> {
   let dgramModule: any = null;
   try {
-    // @ts-ignore dynamic import for optional native dependency
-    dgramModule = await import('react-native-udp').catch(() => null);
-    if (!dgramModule) {
-      // @ts-ignore dynamic import for optional node/bun dependency
-      dgramModule = await import('dgram').catch(() => null);
-    }
+    // Dynamic import for optional native dependency (react-native-udp)
+    // Normalize ESM default export: react-native-udp exports UdpSockets as default
+    // @ts-ignore
+    const udpMod = await import('react-native-udp').catch(() => null);
+    dgramModule = udpMod?.default ?? udpMod;
   } catch {
     dgramModule = null;
   }
@@ -362,16 +361,43 @@ export async function discoverServer(
   }
 
   // 3. Tier 3: Fast Subnet Scan Fallback
-  // Try cached subnet first if known, otherwise standard mobile hotspot subnets
-  const candidateSubnets = options.customSubnets ?? [];
+  // Try cached subnet first if known, otherwise resolve device's own local IP and standard subnets
+  const candidateSubnets = options.customSubnets ? [...options.customSubnets] : [];
+
+  // Try detecting device's own local Wi-Fi IP to target the active local subnet first
+  try {
+    // @ts-ignore dynamic import for optional expo-network
+    const Network = await import('expo-network').catch(() => null);
+    if (Network && typeof Network.getIpAddressAsync === 'function') {
+      const deviceIp = await Network.getIpAddressAsync().catch(() => null);
+      if (deviceIp && typeof deviceIp === 'string' && deviceIp !== '0.0.0.0' && deviceIp !== '127.0.0.1') {
+        const base = extractSubnetBase(deviceIp);
+        if (base && !candidateSubnets.includes(base)) {
+          candidateSubnets.unshift(base);
+        }
+      }
+    }
+  } catch {
+    // Network query failed; continue with other subnets
+  }
+
   if (cachedHost) {
     const base = extractSubnetBase(cachedHost);
     if (base && !candidateSubnets.includes(base)) {
       candidateSubnets.unshift(base);
     }
   }
-  // Standard hotspot subnets: Android (192.168.43.), iOS (172.20.10.), Windows (192.168.137.)
-  const defaultSubnets = ['192.168.43.', '172.20.10.', '192.168.137.'];
+
+  // Standard hotspot and common LAN subnets
+  const defaultSubnets = [
+    '192.168.1.',
+    '192.168.0.',
+    '192.168.29.',
+    '192.168.43.',
+    '172.20.10.',
+    '192.168.137.',
+    '10.0.0.',
+  ];
   for (const s of defaultSubnets) {
     if (!candidateSubnets.includes(s)) {
       candidateSubnets.push(s);

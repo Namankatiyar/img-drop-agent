@@ -44,14 +44,14 @@ export default function RootLayout() {
             name="pair"
             options={{
               title: 'Pair Desktop Server',
-              headerShown: true,
+              headerShown: false,
             }}
           />
           <Stack.Screen
             name="settings"
             options={{
               title: 'Settings & Diagnostics',
-              headerShown: true,
+              headerShown: false,
             }}
           />
         </Stack>

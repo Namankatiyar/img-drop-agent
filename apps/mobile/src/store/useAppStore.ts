@@ -55,6 +55,7 @@ export interface AppState {
   // Actions
   initialize: () => Promise<void>;
   setPairing: (creds: PairingCredentials) => Promise<void>;
+  setHost: (host: string) => Promise<boolean>;
   unpair: () => Promise<void>;
   startDiscovery: () => Promise<boolean>;
   pingServer: () => Promise<boolean>;
@@ -146,9 +147,52 @@ export const useAppStore = create<AppState>((set, get) => ({
       host,
       port,
       isPaired: true,
-      connectionStatus: host ? 'connected' : 'disconnected',
+      connectionStatus: host ? 'connected' : 'discovering',
       lastError: null,
     });
+
+    // If host was not in pairing URI, trigger discovery immediately
+    if (!host) {
+      get().startDiscovery();
+    }
+  },
+
+  /**
+   * Manually configure server host IP and test connectivity
+   */
+  setHost: async (newHost: string) => {
+    const trimmed = newHost.trim();
+    if (!trimmed) {
+      set({ host: null, connectionStatus: 'disconnected' });
+      return false;
+    }
+
+    const { serverId, token, port } = get();
+    const targetPort = port || DEFAULT_PORT;
+
+    try {
+      const health = await checkHealth(trimmed, targetPort, 2500);
+      if (health.status === 'ok') {
+        if (serverId && token) {
+          await saveCredentials({
+            serverId,
+            token,
+            port: targetPort,
+            host: trimmed,
+          });
+        }
+        set({
+          host: trimmed,
+          port: targetPort,
+          connectionStatus: 'connected',
+          lastError: null,
+        });
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
   },
 
   /**
@@ -266,7 +310,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsMultipleSelection: true,
         selectionLimit: remainingSlots,
         quality: 1,
@@ -332,7 +376,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
 
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         quality: 1,
       });
 
@@ -483,6 +527,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       set({
         isUploading: false,
+        uploadProgress: 0,
         lastError: message,
         // Retain currentIdempotencyKey for retrySubmit!
       });
@@ -560,6 +605,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       set({
         isUploading: false,
+        uploadProgress: 0,
         lastError: message,
       });
       return null;
@@ -567,5 +613,5 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   clearLastError: () => set({ lastError: null }),
-  clearLastCreatedGroup: () => set({ lastCreatedGroup: null }),
+  clearLastCreatedGroup: () => set({ lastCreatedGroup: null, uploadProgress: 0 }),
 }));

@@ -27,8 +27,8 @@ export const MAX_NOTE_LENGTH = 2000;
 /** Target maximum size for the long edge of compressed images in pixels */
 export const TARGET_LONG_EDGE_PX = 1568;
 
-/** WebP compression quality factor (0.0 - 1.0) */
-export const WEBP_QUALITY = 0.8;
+/** WebP compression quality factor (0.0 - 1.0). Set to 1.0 for maximum quality without loss */
+export const WEBP_QUALITY = 1.0;
 
 /** Service identifier used in discovery beacon packets */
 export const BEACON_SERVICE = 'imgdrop';
